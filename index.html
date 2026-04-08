@@ -167,13 +167,16 @@
     }
 
     // ── Phaser game ──
-    const DPR = Math.min(window.devicePixelRatio || 1, 3);
+    // Cap at 2× to avoid excessive canvas on mobile/4K
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    window.GAME_DPR = DPR;
+
     const config = {
       type: Phaser.AUTO,
       parent: 'game-container',
-      width: 960,
-      height: 640,
-      resolution: DPR,             // render at native pixel density
+      // Canvas physical pixels = game coords × DPR → native-resolution rendering
+      width: 960 * DPR,
+      height: 640 * DPR,
       backgroundColor: '#0a0a0a',
       scene: [WaitScene, GameScene],
       scale: {

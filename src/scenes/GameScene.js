@@ -43,6 +43,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // Zoom camera to match DPR so all game coords stay at 960×640 scale
+    const dpr = window.GAME_DPR || 1;
+    this.cameras.main.setZoom(dpr);
+    // Shift camera origin so (0,0) in game space maps to top-left of canvas
+    this.cameras.main.setPosition(0, 0);
+    this.cameras.main.setBounds(0, 0, 960, 640);
+
     const lv = LEVELS[this.levelIndex];
     this.grid = new GridSystem(LEVEL_PATH_CELLS);
     this.economy = new EconomySystem(lv.startGold, lv.maxLives);
