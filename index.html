@@ -167,13 +167,15 @@
     }
 
     // ── Phaser game ──
+    const DPR = Math.min(window.devicePixelRatio || 1, 3);
     const config = {
       type: Phaser.AUTO,
       parent: 'game-container',
       width: 960,
       height: 640,
+      resolution: DPR,             // render at native pixel density
       backgroundColor: '#0a0a0a',
-      scene: [WaitScene, GameScene],   // WaitScene auto-starts; GameScene registered but idle
+      scene: [WaitScene, GameScene],
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
