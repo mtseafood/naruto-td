@@ -62,20 +62,22 @@
     .level-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 10px;
-      width: 100%; max-width: 370px;
+      gap: 12px;
+      width: 100%; max-width: 560px;
     }
     .level-btn {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       background: #2a2a2a;
       border: 1px solid #FF4500;
-      border-radius: 8px;
-      padding: 8px 4px;
-      min-height: 56px;
+      border-radius: 10px;
+      padding: 12px 6px;
+      min-height: 64px;
       cursor: pointer;
       -webkit-user-select: none;
       user-select: none;
+      transition: background 0.15s;
     }
+    .level-btn:hover:not(.locked) { background: #4a2a00; }
     .level-btn:active { background: #4a2a00; }
     .level-btn.locked {
       background: #111;
@@ -168,8 +170,8 @@
     const config = {
       type: Phaser.AUTO,
       parent: 'game-container',
-      width: 390,
-      height: 844,
+      width: 960,
+      height: 640,
       backgroundColor: '#0a0a0a',
       scene: [WaitScene, GameScene],   // WaitScene auto-starts; GameScene registered but idle
       scale: {

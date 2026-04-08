@@ -5,15 +5,15 @@
 export const GRID_COLS = 7;
 export const GRID_ROWS = 10;
 export const CELL_SIZE = 55;
-export const GRID_OFFSET_X = 5;
-export const GRID_OFFSET_Y = 80;
+export const GRID_OFFSET_X = 15;
+export const GRID_OFFSET_Y = 55;
 
 // Helper: pixel center of a grid cell
 function cx(col) { return GRID_OFFSET_X + col * CELL_SIZE + CELL_SIZE / 2; }
 function cy(row) { return GRID_OFFSET_Y + row * CELL_SIZE + CELL_SIZE / 2; }
 
 export const LEVEL_PATH = [
-  { x: 430,    y: cy(0) },  // enter from right (off-screen)
+  { x: GRID_OFFSET_X + GRID_COLS * CELL_SIZE + 30, y: cy(0) }, // enter from right of grid
   { x: cx(0),  y: cy(0) },  // row 0 left end
   { x: cx(0),  y: cy(5) },  // col 0 down to row 5
   { x: cx(6),  y: cy(5) },  // row 5 right end

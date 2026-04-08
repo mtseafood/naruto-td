@@ -115,7 +115,7 @@ export class Ninja {
         hit++;
       }
       if (hit === 0) return false;
-      this._showJutsuText(f.jutsuName, 195, 355, true);
+      this._showJutsuText(f.jutsuName, 210, 340, true);
       return true;
     }
 
@@ -166,7 +166,7 @@ export class Ninja {
       // so we just show the effect and maybe restore a life)
       this.scene.economy.lives = Math.min(this.scene.economy.maxLives, this.scene.economy.lives + 2);
       this.scene.events.emit('hudUpdate');
-      this._showJutsuText(f.jutsuName, 195, 355, true);
+      this._showJutsuText(f.jutsuName, 210, 340, true);
       return;
     }
 

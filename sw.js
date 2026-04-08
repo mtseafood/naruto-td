@@ -1,4 +1,4 @@
-const CACHE = 'naruto-td-v3';
+const CACHE = 'naruto-td-v4';
 const ASSETS = [
   './',
   './index.html',
