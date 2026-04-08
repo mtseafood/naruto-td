@@ -53,40 +53,49 @@ export class MenuScene extends Phaser.Scene {
       fontSize: '18px', fill: '#FFFFFF', fontFamily: 'Arial',
     }).setOrigin(0.5);
 
-    const cols = 5;
+    const COLS = 5;
+    const BTN_W = 60, BTN_H = 50;
+    const levelHitAreas = [];
+
     LEVELS.forEach((lv, idx) => {
-      const col = idx % cols;
-      const row = Math.floor(idx / cols);
+      const col = idx % COLS;
+      const row = Math.floor(idx / COLS);
       const bx = 30 + col * 70;
       const by = 340 + row * 80;
       const unlocked = idx + 1 <= maxUnlocked;
 
-      const btn = this.add.rectangle(bx + 25, by + 25, 60, 50,
-        unlocked ? 0x2a2a2a : 0x111111);
-      btn.setStrokeStyle(1, unlocked ? 0xFF4500 : 0x333333);
-      if (unlocked) btn.setInteractive();
+      this.add.rectangle(bx + BTN_W / 2, by + BTN_H / 2, BTN_W, BTN_H,
+        unlocked ? 0x2a2a2a : 0x111111)
+        .setStrokeStyle(1, unlocked ? 0xFF4500 : 0x333333);
 
-      this.add.text(bx + 25, by + 18, `第${lv.id}關`, {
+      this.add.text(bx + BTN_W / 2, by + 14, `第${lv.id}關`, {
         fontSize: '11px', fill: unlocked ? '#FFD700' : '#555555', fontFamily: 'Arial',
       }).setOrigin(0.5);
 
-      this.add.text(bx + 25, by + 34, lv.name.length > 5 ? lv.name.slice(0, 5) : lv.name, {
+      this.add.text(bx + BTN_W / 2, by + 30, lv.name.length > 5 ? lv.name.slice(0, 5) : lv.name, {
         fontSize: '9px', fill: unlocked ? '#AAAAAA' : '#333333', fontFamily: 'Arial',
       }).setOrigin(0.5);
 
-      if (unlocked) {
-        btn.on('pointerdown', () => {
-          this.scene.start('GameScene', { levelIndex: idx });
-        });
-        btn.on('pointerover', () => btn.setFillStyle(0x3a3a3a));
-        btn.on('pointerout', () => btn.setFillStyle(0x2a2a2a));
-      }
-
-      // Lock icon
       if (!unlocked) {
-        this.add.text(bx + 25, by + 46, '🔒', {
+        this.add.text(bx + BTN_W / 2, by + 44, '🔒', {
           fontSize: '10px', fontFamily: 'Arial',
         }).setOrigin(0.5);
+      }
+
+      if (unlocked) {
+        levelHitAreas.push({ idx, x: bx, y: by, w: BTN_W, h: BTN_H });
+      }
+    });
+
+    // Single scene-level pointer handler — most reliable on mobile
+    this.input.on('pointerdown', (pointer) => {
+      const px = pointer.x, py = pointer.y;
+      for (const area of levelHitAreas) {
+        if (px >= area.x && px <= area.x + area.w &&
+            py >= area.y && py <= area.y + area.h) {
+          this.scene.start('GameScene', { levelIndex: area.idx });
+          return;
+        }
       }
     });
 
