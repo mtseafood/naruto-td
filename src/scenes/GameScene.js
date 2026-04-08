@@ -5,7 +5,10 @@ import { WaveSystem } from '../systems/WaveSystem.js';
 import { EconomySystem } from '../systems/EconomySystem.js';
 import { Ninja } from '../entities/Ninja.js';
 import { Projectile } from '../entities/Projectile.js';
-import { getSave, setSave } from './MenuScene.js';
+// Save helpers (shared with DOM menu in index.html)
+const SAVE_KEY = 'naruto_td_save';
+function getSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch { return {}; } }
+function setSave(data) { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }
 
 // Layout constants
 const W = 390, H = 844;
@@ -488,7 +491,7 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(32);
 
     this._makeButton(W / 2, win && hasNext ? 570 : 500, '主選單', 18, 0x222222, '#FFFFFF', () => {
-      this.scene.start('MenuScene');
+      window.showMenu();
     }).setOrigin(0.5).setDepth(32);
   }
 
@@ -500,6 +503,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   _makeButton(x, y, label, fontSize, bgColor, textColor, callback) {
+    // Normalize textColor to CSS string
+    const fillStr = typeof textColor === 'number'
+      ? '#' + textColor.toString(16).padStart(6, '0')
+      : textColor;
+
     const lines = label.split('\n');
     const bh = Math.max(40, lines.length * (fontSize + 4) + 10);
     const bw = Math.max(120, label.replace(/\n/g, '').length * (fontSize * 0.6) + 24);
@@ -507,15 +515,13 @@ export class GameScene extends Phaser.Scene {
     const btn = this.add.container(x, y).setDepth(21);
     const bg = this.add.rectangle(0, 0, bw, bh, bgColor, callback ? 1 : 0.4).setStrokeStyle(1, 0x444444);
     const lbl = this.add.text(0, 0, label, {
-      fontSize: `${fontSize}px`, fill: textColor, fontFamily: 'Arial', align: 'center',
+      fontSize: `${fontSize}px`, fill: fillStr, fontFamily: 'Arial', align: 'center',
     }).setOrigin(0.5);
     btn.add([bg, lbl]);
 
     if (callback) {
       bg.setInteractive();
       bg.on('pointerdown', (p) => { p.event.stopPropagation(); callback(); });
-      bg.on('pointerover', () => bg.setFillStyle(Phaser.Display.Color.IntegerToColor(bgColor).brighten(20).color));
-      bg.on('pointerout', () => bg.setFillStyle(bgColor));
     }
     return btn;
   }

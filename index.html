@@ -9,20 +9,200 @@
   <title>火影忍者塔防</title>
   <link rel="manifest" href="manifest.json">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
       background: #0a0a0a;
       width: 100%; height: 100%;
-      display: flex; justify-content: center; align-items: center;
       overflow: hidden;
       touch-action: none;
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
     }
-    canvas { display: block; touch-action: none; }
+
+    /* ── Game canvas container ── */
+    #game-container {
+      width: 100%; height: 100%;
+      display: flex; justify-content: center; align-items: center;
+    }
+    #game-container canvas { display: block; touch-action: none; }
+
+    /* ── DOM Menu Overlay ── */
+    #menu {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center;
+      background: linear-gradient(180deg, #1a0a00 0%, #2a1200 50%, #4a1a00 100%);
+      z-index: 100;
+      padding: env(safe-area-inset-top, 20px) 16px 24px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #menu.hidden { display: none; }
+
+    .menu-title {
+      font-size: 44px; font-weight: bold; color: #FF4500;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+      margin-top: 30px;
+    }
+    .menu-subtitle {
+      font-size: 24px; font-weight: bold; color: #FFD700;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      margin-top: 6px;
+    }
+
+    .ninja-row {
+      display: flex; gap: 8px; margin-top: 24px;
+    }
+    .ninja-dot {
+      width: 30px; height: 30px; border-radius: 50%;
+    }
+
+    .section-title {
+      color: #fff; font-size: 16px; margin-top: 28px; margin-bottom: 12px;
+    }
+
+    .level-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      width: 100%; max-width: 370px;
+    }
+    .level-btn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #2a2a2a;
+      border: 1px solid #FF4500;
+      border-radius: 8px;
+      padding: 8px 4px;
+      min-height: 56px;
+      cursor: pointer;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .level-btn:active { background: #4a2a00; }
+    .level-btn.locked {
+      background: #111;
+      border-color: #333;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    .level-btn .lv-num { font-size: 12px; color: #FFD700; font-weight: bold; }
+    .level-btn .lv-name { font-size: 9px; color: #aaa; margin-top: 2px; }
+    .level-btn.locked .lv-num { color: #555; }
+    .level-btn.locked .lv-name { color: #333; }
+
+    .menu-footer { color: #666; font-size: 13px; margin-top: 24px; }
   </style>
 </head>
 <body>
+
+  <!-- ── DOM-based Menu (always works on iPhone) ── -->
+  <div id="menu">
+    <div class="menu-title">火影忍者</div>
+    <div class="menu-subtitle">塔防守護</div>
+
+    <div class="ninja-row">
+      <div class="ninja-dot" style="background:#FF8C00"></div>
+      <div class="ninja-dot" style="background:#6600AA"></div>
+      <div class="ninja-dot" style="background:#FF69B4"></div>
+      <div class="ninja-dot" style="background:#999"></div>
+      <div class="ninja-dot" style="background:#00CC44"></div>
+      <div class="ninja-dot" style="background:#8855CC"></div>
+      <div class="ninja-dot" style="background:#C19A6B"></div>
+      <div class="ninja-dot" style="background:#FFD700"></div>
+    </div>
+
+    <div class="section-title">選擇關卡</div>
+    <div class="level-grid" id="level-grid"></div>
+    <div class="menu-footer">點擊關卡開始遊戲</div>
+  </div>
+
+  <!-- ── Phaser game canvas ── -->
+  <div id="game-container"></div>
+
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
-  <script type="module" src="src/main.js"></script>
+  <script type="module">
+    import { GameScene } from './src/scenes/GameScene.js';
+
+    // ── Save helpers ──
+    const SAVE_KEY = 'naruto_td_save';
+    function getSave() {
+      try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; } catch { return {}; }
+    }
+    if (!getSave().maxLevel) localStorage.setItem(SAVE_KEY, JSON.stringify({ maxLevel: 1 }));
+
+    // ── Level data (names only — full data in levels.js) ──
+    const LEVEL_NAMES = [
+      '木葉村入口','木葉村城門','中忍考試場','森林地帶',
+      '大蛇丸巢穴','次郎坊','鬼童丸多由也','左近',
+      '巢穴深處','最終決戰'
+    ];
+
+    // ── Build level grid ──
+    function buildMenu() {
+      const grid = document.getElementById('level-grid');
+      grid.innerHTML = '';
+      const save = getSave();
+      const maxLv = save.maxLevel ?? 1;
+
+      LEVEL_NAMES.forEach((name, idx) => {
+        const btn = document.createElement('div');
+        const unlocked = idx + 1 <= maxLv;
+        btn.className = 'level-btn' + (unlocked ? '' : ' locked');
+        btn.innerHTML = `
+          <span class="lv-num">${unlocked ? '第' + (idx + 1) + '關' : '🔒'}</span>
+          <span class="lv-name">${name.length > 4 ? name.slice(0, 4) : name}</span>
+        `;
+        if (unlocked) {
+          btn.addEventListener('click', () => startLevel(idx));
+          btn.addEventListener('touchend', (e) => { e.preventDefault(); startLevel(idx); });
+        }
+        grid.appendChild(btn);
+      });
+    }
+
+    // ── Phaser game ──
+    const config = {
+      type: Phaser.AUTO,
+      parent: 'game-container',
+      width: 390,
+      height: 844,
+      backgroundColor: '#0a0a0a',
+      scene: [GameScene],
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+      },
+      render: { antialias: true },
+      input: { touch: true },
+    };
+
+    const game = new Phaser.Game(config);
+    window.NARUTO_GAME = game;
+
+    // Don't start GameScene yet — wait for menu click
+    game.scene.pause('GameScene');
+
+    // ── Start level from DOM menu ──
+    function startLevel(idx) {
+      document.getElementById('menu').classList.add('hidden');
+      // Stop existing if running, then restart
+      const gScene = game.scene.getScene('GameScene');
+      if (gScene) {
+        game.scene.stop('GameScene');
+      }
+      game.scene.start('GameScene', { levelIndex: idx });
+    }
+    window.startLevel = startLevel;
+
+    // ── Show menu (called from GameScene) ──
+    window.showMenu = function() {
+      game.scene.stop('GameScene');
+      buildMenu(); // refresh unlock state
+      document.getElementById('menu').classList.remove('hidden');
+    };
+
+    // ── Init ──
+    buildMenu();
+  </script>
+
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
