@@ -158,6 +158,12 @@
       });
     }
 
+    // ── Idle scene (Phaser needs at least one scene running) ──
+    class WaitScene extends Phaser.Scene {
+      constructor() { super({ key: 'WaitScene' }); }
+      create() { /* idle — DOM menu is visible */ }
+    }
+
     // ── Phaser game ──
     const config = {
       type: Phaser.AUTO,
@@ -165,7 +171,7 @@
       width: 390,
       height: 844,
       backgroundColor: '#0a0a0a',
-      scene: [GameScene],
+      scene: [WaitScene, GameScene],   // WaitScene auto-starts; GameScene registered but idle
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -177,17 +183,10 @@
     const game = new Phaser.Game(config);
     window.NARUTO_GAME = game;
 
-    // Don't start GameScene yet — wait for menu click
-    game.scene.pause('GameScene');
-
     // ── Start level from DOM menu ──
     function startLevel(idx) {
       document.getElementById('menu').classList.add('hidden');
-      // Stop existing if running, then restart
-      const gScene = game.scene.getScene('GameScene');
-      if (gScene) {
-        game.scene.stop('GameScene');
-      }
+      game.scene.stop('WaitScene');
       game.scene.start('GameScene', { levelIndex: idx });
     }
     window.startLevel = startLevel;
@@ -195,6 +194,7 @@
     // ── Show menu (called from GameScene) ──
     window.showMenu = function() {
       game.scene.stop('GameScene');
+      game.scene.start('WaitScene');
       buildMenu(); // refresh unlock state
       document.getElementById('menu').classList.remove('hidden');
     };
