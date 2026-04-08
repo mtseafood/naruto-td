@@ -62,8 +62,9 @@ export class MenuScene extends Phaser.Scene {
       const unlocked = idx + 1 <= maxUnlocked;
 
       const btn = this.add.rectangle(bx + 25, by + 25, 60, 50,
-        unlocked ? 0x2a2a2a : 0x111111).setInteractive(unlocked);
+        unlocked ? 0x2a2a2a : 0x111111);
       btn.setStrokeStyle(1, unlocked ? 0xFF4500 : 0x333333);
+      if (unlocked) btn.setInteractive();
 
       this.add.text(bx + 25, by + 18, `第${lv.id}關`, {
         fontSize: '11px', fill: unlocked ? '#FFD700' : '#555555', fontFamily: 'Arial',

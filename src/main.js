@@ -15,6 +15,7 @@ const config = {
   render: {
     antialias: true,
     pixelArt: false,
+    resolution: window.devicePixelRatio || 1,
   },
 };
 
