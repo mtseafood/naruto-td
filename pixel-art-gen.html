@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <title>忍者像素圖生成器</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f0f0f; color: #fff;
+      font-family: -apple-system, Arial, sans-serif;
+      padding: 24px;
+    }
+    h1 { color: #FF4500; font-size: 28px; margin-bottom: 6px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 28px; }
+
+    .grid { display: flex; flex-wrap: wrap; gap: 24px; }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+      width: 160px;
+    }
+    .card canvas {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      display: block;
+      margin: 0 auto 10px;
+      border: 1px solid #333;
+      border-radius: 4px;
+    }
+    .card .char-name { color: #FFD700; font-size: 15px; font-weight: bold; margin-bottom: 4px; }
+    .card .char-sub  { color: #888; font-size: 11px; margin-bottom: 10px; }
+
+    .btns { display: flex; gap: 6px; justify-content: center; }
+    button {
+      padding: 6px 10px;
+      background: #2a2a2a;
+      color: #ccc;
+      border: 1px solid #444;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: background 0.15s;
+    }
+    button:hover { background: #3a3a3a; color: #fff; }
+    button.dl { background: #003300; border-color: #005500; color: #88FF88; }
+    button.dl:hover { background: #004400; }
+
+    .scale-row {
+      display: flex; gap: 10px; align-items: center;
+      margin-bottom: 20px;
+    }
+    .scale-row label { color: #aaa; font-size: 13px; }
+    .scale-row select {
+      background: #222; color: #fff; border: 1px solid #444;
+      padding: 4px 8px; border-radius: 4px; font-size: 13px;
+    }
+    #dl-all {
+      padding: 8px 20px; background: #550000; border: 1px solid #AA0000;
+      color: #FFAAAA; border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
+    #dl-all:hover { background: #660000; }
+  </style>
+</head>
+<body>
+
+<h1>🎮 火影忍者塔防 · 像素圖生成器</h1>
+<p class="subtitle">16×16 像素角色圖示 — 個人遊戲用途</p>
+
+<div class="scale-row">
+  <label>預覽尺寸：</label>
+  <select id="scale-sel">
+    <option value="4">64×64 (4×)</option>
+    <option value="6" selected>96×96 (6×)</option>
+    <option value="8">128×128 (8×)</option>
+  </select>
+  <label style="margin-left:12px">下載尺寸：</label>
+  <select id="export-sel">
+    <option value="2">32×32 (2×)</option>
+    <option value="4" selected>64×64 (4×)</option>
+    <option value="8">128×128 (8×)</option>
+    <option value="16">256×256 (16×)</option>
+  </select>
+  <button id="dl-all" style="margin-left:16px">⬇ 全部下載</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+// ── Colour palette ────────────────────────────────────────
+const C = {
+  '.': null,
+  'k': '#111111',  // black
+  'w': '#FFFFFF',  // white
+  's': '#FFCC88',  // skin
+  'y': '#FFD700',  // yellow (hair)
+  'o': '#FF7700',  // orange (suit)
+  'b': '#4488CC',  // blue (headband)
+  'p': '#6600CC',  // purple
+  'r': '#CC2222',  // red
+  'g': '#009933',  // green
+  'h': '#777777',  // gray
+  'c': '#CCCCCC',  // silver (Kakashi's hair)
+  'q': '#FF55BB',  // pink (Sakura's hair)
+  'v': '#9955CC',  // violet (Hinata)
+  'n': '#1A2244',  // dark navy (Sasuke body / Hinata hair)
+  'd': '#442233',  // dark ring (Gaara eye rings)
+  'W': '#EEEEEE',  // off-white
+  'Y': '#FFE044',  // bright yellow (Minato hair)
+  'R': '#EE3333',  // bright red (Gaara hair)
+  'N': '#223366',  // medium navy
+  'G': '#33BB55',  // bright green
+};
+
+// ── 16×16 Pixel art data ──────────────────────────────────
+// Each string = 1 row, exactly 16 characters.
+const SPRITES = [
+
+  {
+    id: 'naruto', name: '鳴人', sub: '渦卷鳴人', color: '#FF8C00',
+    px: [
+      '....yyyy........',  // hair spikes
+      '.yyyyyyy........',  // hair mass
+      '.yyssssssyy.....',  // hair sides + face
+      '.bbbbbbbbbb.....',  // headband (blue)
+      '.ssssssssss.....',  // forehead
+      '.skssssssk......',  // eyes (k = pupil)
+      '.ssssssssss.....',  // face mid
+      '.kss.sss.sk.....',  // whisker marks (k dots)
+      '.ssssssss.......',  // chin
+      '..woooooow......',  // collar (w = white trim)
+      '.ooooooooo......',  // torso
+      '.ooooooooo......',  //
+      '.oo.oo.oo.......',  // lower body / belt area
+      '.kk.oo.kk.......',  // dark legs
+      '.kk.oo.kk.......',  //
+      '.kk....kk.......',  // boots base
+    ],
+  },
+
+  {
+    id: 'sasuke', name: '佐助', sub: '寫輪眼佐助', color: '#6600AA',
+    px: [
+      '...kkkk.........',  // dark hair top spikes
+      '..kkkkkk........',  // hair mass
+      '.kkssssssk......',  // hair sides + face
+      '..bbbbbbb.......',  // headband
+      '..sssssss.......',  // face
+      '..srsssrs.......',  // sharingan eyes (r = red iris)
+      '..sssssss.......',  //
+      '..sssssss.......',  //
+      '..sssssss.......',  // chin
+      '..wwwwwww.......',  // white collar
+      '..nnnnnnn.......',  // dark navy body
+      '..nnnnnnn.......',  //
+      '..nn.nn.nn......',  // lower body
+      '..kk.nn.kk......',  // dark legs
+      '..kk.nn.kk......',  //
+      '..kk....kk......',  // boots
+    ],
+  },
+
+  {
+    id: 'sakura', name: '小櫻', sub: '醫療忍者', color: '#FF69B4',
+    px: [
+      '....qqqqq.......',  // pink hair top
+      '..qqqqqqqqq.....',  // hair mass
+      '.qqssssssqq.....',  // hair sides + face
+      '..bbbbbbb.......',  // headband (red for Sakura normally, using blue village one)
+      '..sssssss.......',  // face
+      '..sksssks.......',  // eyes
+      '..sssssss.......',  //
+      '..sssssss.......',  //
+      '..sssssss.......',  // chin
+      '..rrrrrrr.......',  // red outfit
+      '..rrrrrrr.......',  //
+      '..rrrrrrr.......',  //
+      '..rr.rr.rr......',  //
+      '..kk.rr.kk......',  // dark legs
+      '..kk.rr.kk......',  //
+      '..kk....kk......',  // boots
+    ],
+  },
+
+  {
+    id: 'kakashi', name: '卡卡西', sub: '複製忍者', color: '#999999',
+    px: [
+      '..cccccccc......',  // silver hair
+      '.ccssssscc......',  // hair sides + face
+      '..bbbbbbbb......',  // headband base
+      '..bsssssss......',  // headband covers left eye (b over eye area)
+      '..ssssssss......',  // face
+      '..sssskss.......',  // only right eye visible (k = pupil)
+      '..hhhhhhhh......',  // mask (h = gray)
+      '..hhhhhhhh......',  //
+      '..hhhhhhhh......',  //
+      '..hhhhhhhh......',  // collar area
+      '..hhhhhhhh......',  // body (gray)
+      '..hhhhhhhh......',  //
+      '..hh.hh.hh......',  //
+      '..kk.hh.kk......',  // dark legs
+      '..kk.hh.kk......',  //
+      '..kk....kk......',  // boots
+    ],
+  },
+
+  {
+    id: 'rocklee', name: '李洛克', sub: '青春の力', color: '#00CC44',
+    px: [
+      '..kkkkkkkk......',  // black bowl-cut hair
+      '.kkssssskkk.....',  // hair sides + face
+      '..bbbbbbbb......',  // headband
+      '..ssssssss......',  // face
+      '..kksskks.......',  // thick eyebrows (kk each side)
+      '..sksssks.......',  // eyes
+      '..ssssssss......',  //
+      '..ssssssss......',  //
+      '..ssssssss......',  // chin
+      '..gggggggg......',  // green jumpsuit
+      '..wwwwwwww......',  // white belt
+      '..gggggggg......',  // suit body
+      '..gg.gg.gg......',  //
+      '..kk.gg.kk......',  // dark legs
+      '..kk.gg.kk......',  //
+      '..kk....kk......',  // boots
+    ],
+  },
+
+  {
+    id: 'hinata', name: '雛田', sub: '白眼覺醒', color: '#8855CC',
+    px: [
+      '..nnnnnnnn......',  // dark navy hair
+      '.nnsssssnn......',  // hair sides + face
+      '..bbbbbbbb......',  // headband
+      '..ssssssss......',  // face
+      '..swssswss......',  // byakugan (w = pearl-white iris)
+      '..ssssssss......',  //
+      '..ssssssss......',  //
+      '..ssssssss......',  //
+      '..ssssssss......',  // chin
+      '..vvvvvvvv......',  // lavender outfit
+      '..vvvvvvvv......',  //
+      '..vvvvvvvv......',  //
+      '..vv.vv.vv......',  //
+      '..kk.vv.kk......',  // dark legs
+      '..kk.vv.kk......',  //
+      '..kk....kk......',  // boots
+    ],
+  },
+
+  {
+    id: 'gaara', name: '我愛羅', sub: '砂之守護', color: '#C19A6B',
+    px: [
+      '..RRRRRRRR......',  // crimson hair (R = bright red)
+      '.RRsssssRR......',  // hair sides + face
+      '..ssssssss......',  // no headband
+      '..ssssssss......',  // face top
+      '..ddssdds.......',  // dark rings above eyes (d = dark ring)
+      '..dksssdk.......',  // eyes within dark rings (k = pupil)
+      '..ddssdds.......',  // dark rings below eyes
+      '..ssssssss......',  //
+      '..ssssssss......',  // chin
+      '..rrrrrrrrr.....',  // red/brown desert outfit
+      '..rrrrrrrrr.....',  //
+      '..rrrrrrrrr.....',  //
+      '..rr.rr.rr......',  //
+      '..kk.rr.kk......',  // dark legs
+      '..kk.rr.kk......',  //
+      '..kk....kk......',  // boots
+    ],
+  },
+
+  {
+    id: 'minato', name: '水門', sub: '第四代火影', color: '#FFD700',
+    px: [
+      '....YYYYYYY.....',  // bright yellow hair spikes
+      '..YYYYYYYYY.....',  // hair mass
+      '.YYsssssYYY.....',  // hair sides + face
+      '..bbbbbbb.......',  // headband
+      '..sssssss.......',  // face
+      '..sksssks.......',  // eyes
+      '..sssssss.......',  //
+      '..sssssss.......',  //
+      '..sssssss.......',  // chin
+      '..wwwwwww.......',  // white Hokage-style top
+      '..wYYYYYw.......',  // yellow flash accent stripe
+      '..wwwwwww.......',  // white body
+      '..ww.ww.ww......',  //
+      '..kk.ww.kk......',  // dark legs
+      '..kk.ww.kk......',  //
+      '..kk....kk......',  // boots
+    ],
+  },
+
+];
+
+// ── Renderer ──────────────────────────────────────────────
+function renderSprite(sprite, scale) {
+  const SIZE = 16;
+  const canvas = document.createElement('canvas');
+  canvas.width  = SIZE * scale;
+  canvas.height = SIZE * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (let row = 0; row < SIZE; row++) {
+    const rowStr = sprite.px[row] || '';
+    for (let col = 0; col < SIZE; col++) {
+      const ch = rowStr[col] || '.';
+      const color = C[ch];
+      if (!color) continue;  // transparent
+      ctx.fillStyle = color;
+      ctx.fillRect(col * scale, row * scale, scale, scale);
+    }
+  }
+  return canvas;
+}
+
+// ── Build UI ──────────────────────────────────────────────
+function getPreviewScale()  { return parseInt(document.getElementById('scale-sel').value, 10); }
+function getExportScale()   { return parseInt(document.getElementById('export-sel').value, 10); }
+
+const gridEl = document.getElementById('grid');
+
+function buildCards() {
+  gridEl.innerHTML = '';
+  const pscale = getPreviewScale();
+
+  SPRITES.forEach(sprite => {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const canvas = renderSprite(sprite, pscale);
+    canvas.style.width  = `${16 * pscale}px`;
+    canvas.style.height = `${16 * pscale}px`;
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'char-name';
+    nameEl.textContent = sprite.name;
+
+    const subEl = document.createElement('div');
+    subEl.className = 'char-sub';
+    subEl.textContent = sprite.sub;
+
+    const btns = document.createElement('div');
+    btns.className = 'btns';
+
+    // Preview button (cycles scale for this card)
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'dl';
+    dlBtn.textContent = '⬇ PNG';
+    dlBtn.addEventListener('click', () => downloadSprite(sprite));
+
+    btns.appendChild(dlBtn);
+    card.appendChild(canvas);
+    card.appendChild(nameEl);
+    card.appendChild(subEl);
+    card.appendChild(btns);
+    gridEl.appendChild(card);
+  });
+}
+
+function downloadSprite(sprite) {
+  const scale  = getExportScale();
+  const canvas = renderSprite(sprite, scale);
+  const link   = document.createElement('a');
+  link.download = `naruto_td_${sprite.id}_${16 * scale}px.png`;
+  link.href    = canvas.toDataURL('image/png');
+  link.click();
+}
+
+// Rebuild on scale change
+document.getElementById('scale-sel').addEventListener('change', buildCards);
+
+// Download all
+document.getElementById('dl-all').addEventListener('click', () => {
+  SPRITES.forEach((s, i) => {
+    setTimeout(() => downloadSprite(s), i * 200);
+  });
+});
+
+// Init
+buildCards();
+</script>
+</body>
+</html>
