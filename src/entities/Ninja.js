@@ -15,9 +15,10 @@ export class Ninja {
     this.y = center.y;
 
     this.lastAttackTime = 0;
-    this.lastJutsuTime = 0; // will be set in create so jutsu fires after half cooldown
+    this.lastJutsuTime  = 0;
+    this.lastAuraTime   = 0;
 
-    this.gfx = scene.add.graphics().setDepth(5);
+    this.gfx    = scene.add.graphics().setDepth(5);
     this.lvlTxt = null;
 
     this._draw();
@@ -27,30 +28,59 @@ export class Ninja {
   getNextForm() { return this.data.forms[this.formIndex + 1] ?? null; }
 
   _draw() {
-    const f = this.form;
-    this.gfx.clear();
+    const f  = this.form;
+    const g  = this.gfx;
+    g.clear();
 
     // Shadow
-    this.gfx.fillStyle(0x000000, 0.3);
-    this.gfx.fillEllipse(this.x, this.y + 22, 34, 8);
+    g.fillStyle(0x000000, 0.3);
+    g.fillEllipse(this.x, this.y + 23, 36, 8);
 
-    // Body circle
-    this.gfx.fillStyle(f.color, 1);
-    this.gfx.fillCircle(this.x, this.y, 20);
+    // Body
+    g.fillStyle(f.color, 1);
+    g.fillCircle(this.x, this.y, 20);
 
-    // Form ring (different per form)
+    // Form ring
     if (this.formIndex === 1) {
-      this.gfx.lineStyle(2, 0xFFFFFF, 0.7);
-      this.gfx.strokeCircle(this.x, this.y, 23);
+      g.lineStyle(2, 0xFFFFFF, 0.75);
+      g.strokeCircle(this.x, this.y, 23);
     } else if (this.formIndex === 2) {
-      this.gfx.lineStyle(3, 0xFFD700, 1);
-      this.gfx.strokeCircle(this.x, this.y, 24);
+      g.lineStyle(3, 0xFFD700, 1);
+      g.strokeCircle(this.x, this.y, 24);
+      // Extra inner glow ring
+      g.lineStyle(1, 0xFFFFAA, 0.5);
+      g.strokeCircle(this.x, this.y, 19);
+    }
+
+    // Headband stripe
+    const hbColor = this.type === 'minato' ? 0xFFD700 : 0x446688;
+    g.lineStyle(3, hbColor, 0.85);
+    g.beginPath();
+    g.arc(this.x, this.y, 20, -0.55, 0.55);
+    g.strokePath();
+    // Leaf symbol (tiny dot on headband)
+    g.fillStyle(0xAADDFF, 0.9);
+    g.fillCircle(this.x, this.y - 18, 2);
+
+    // Eyes
+    g.fillStyle(0x111111, 0.9);
+    g.fillCircle(this.x - 6, this.y - 4, 3);
+    g.fillCircle(this.x + 6, this.y - 4, 3);
+    // Eye highlights
+    g.fillStyle(0xFFFFFF, 0.8);
+    g.fillCircle(this.x - 5, this.y - 5, 1.2);
+    g.fillCircle(this.x + 7, this.y - 5, 1.2);
+
+    // Aura ring (passive)
+    if (f.passiveAura) {
+      g.lineStyle(1, 0xFFAA00, 0.25);
+      g.strokeCircle(this.x, this.y, f.passiveAura.radius);
     }
 
     // Level badge
     if (this.lvlTxt) this.lvlTxt.destroy();
     if (this.level > 1) {
-      this.lvlTxt = this.scene.add.text(this.x + 14, this.y - 14, `${this.level}`, {
+      this.lvlTxt = this.scene.add.text(this.x + 14, this.y - 16, `${this.level}`, {
         fontSize: '10px', fill: '#FFFFFF', fontFamily: 'Arial', fontStyle: 'bold',
         stroke: '#000', strokeThickness: 2,
       }).setOrigin(0.5).setDepth(6);
@@ -61,19 +91,31 @@ export class Ninja {
     const f = this.form;
 
     // Normal attack
-    if (time - this.lastAttackTime >= f.attackCooldown) {
-      const tgt = this._nearest(enemies, f.attackRange);
+    const atkCd = this._atkCooldown();
+    if (time - this.lastAttackTime >= atkCd) {
+      const tgt = this._nearest(enemies, this._atkRange());
       if (tgt) {
         this._attack(tgt, f);
         this.lastAttackTime = time;
       }
     }
 
-    // Jutsu (fires at half-cooldown on first use)
+    // Jutsu
     const jCd = this.lastJutsuTime === 0 ? f.jutsuCooldown / 2 : f.jutsuCooldown;
     if (time - this.lastJutsuTime >= jCd) {
       const fired = this._castJutsu(f, enemies, time);
       if (fired) this.lastJutsuTime = time;
+    }
+
+    // Aura passive — debuff nearby enemies' armor
+    if (f.passiveAura && time - this.lastAuraTime >= 1000) {
+      this.lastAuraTime = time;
+      for (const e of enemies) {
+        if (e.isDead || e.reachedEnd) continue;
+        if (Math.hypot(e.x - this.x, e.y - this.y) <= f.passiveAura.radius) {
+          e.applyArmorDebuff(f.passiveAura.defenseBonus);
+        }
+      }
     }
   }
 
@@ -87,25 +129,33 @@ export class Ninja {
     return best;
   }
 
-  _lvlBonus() { return 1 + (this.level - 1) * 0.05; }
+  // Shop/level bonuses
+  _atkMult()    { return (1 + (this.level - 1) * 0.05) * (this.scene.shopBonuses?.attackMult ?? 1); }
+  _atkRange()   { return this.form.attackRange  * (this.scene.shopBonuses?.rangeMult ?? 1); }
+  _jutsuRange() { return this.form.jutsuRange   * (this.scene.shopBonuses?.rangeMult ?? 1); }
+  _atkCooldown(){ return this.form.attackCooldown / (this.scene.shopBonuses?.speedMult ?? 1); }
 
   _attack(tgt, f) {
-    const dmg = Math.floor(f.damage * this._lvlBonus());
+    let dmg = Math.floor(f.damage * this._atkMult());
+    // Crit passive
+    if (f.passiveCrit && Math.random() < f.passiveCrit.chance) {
+      dmg *= 2;
+      this._showJutsuText('暴擊！', tgt.x, tgt.y - 15, false);
+    }
     this.scene.spawnProjectile(this.x, this.y, tgt, dmg, {
       color: f.color, speed: 380,
     });
+    if (this.scene.sound) this.scene.sound.attack();
   }
 
   _castJutsu(f, enemies, _time) {
-    const dmg = Math.floor(f.jutsuDamage * this._lvlBonus());
+    const dmg = Math.floor(f.jutsuDamage * this._atkMult());
 
-    // Heal jutsu (Sakura)
     if (f.jutsuHeal) {
       this._doHealJutsu(f);
       return true;
     }
 
-    // Full-map attack
     if (f.jutsuIsFullMap) {
       let hit = 0;
       for (const e of enemies) {
@@ -116,12 +166,13 @@ export class Ninja {
       }
       if (hit === 0) return false;
       this._showJutsuText(f.jutsuName, 210, 340, true);
+      if (this.scene.sound) this.scene.sound.jutsu();
+      this._spawnJutsuParticles(f.color);
       return true;
     }
 
-    // AOE projectile
     if (f.jutsuAoe > 0) {
-      const tgt = this._nearest(enemies, f.jutsuRange);
+      const tgt = this._nearest(enemies, this._jutsuRange());
       if (!tgt) return false;
       this.scene.spawnProjectile(this.x, this.y, tgt, dmg, {
         color: 0xFF8800, speed: 300, isJutsu: true, jutsuName: f.jutsuName,
@@ -129,10 +180,10 @@ export class Ninja {
         slowEffect: f.jutsuSlow ?? null,
         dotEffect: f.jutsuDot ?? null,
       });
+      if (this.scene.sound) this.scene.sound.jutsu();
       return true;
     }
 
-    // Multi-target (shadow clones etc.)
     if (f.jutsuTargetCount > 1) {
       const pool = enemies.filter(e => !e.isDead && !e.reachedEnd);
       if (pool.length === 0) return false;
@@ -144,46 +195,57 @@ export class Ninja {
           jutsuName: i === 0 ? f.jutsuName : '',
         });
       }
+      if (this.scene.sound) this.scene.sound.jutsu();
       return true;
     }
 
-    // Single target jutsu
-    const tgt = this._nearest(enemies, f.jutsuRange);
+    const tgt = this._nearest(enemies, this._jutsuRange());
     if (!tgt) return false;
     this.scene.spawnProjectile(this.x, this.y, tgt, dmg, {
       color: 0xFFFFFF, speed: 300, isJutsu: true, jutsuName: f.jutsuName,
       dotEffect: f.jutsuDot ?? null,
     });
+    if (this.scene.sound) this.scene.sound.jutsu();
     return true;
   }
 
   _doHealJutsu(f) {
-    const healAmt = Math.floor(f.jutsuHeal * this._lvlBonus());
-    const ninjas = this.scene.ninjas;
+    const healAmt = Math.floor(f.jutsuHeal * this._atkMult());
 
     if (f.jutsuFullHeal) {
-      // Full heal all ninjas (passive: they don't have HP in this implementation
-      // so we just show the effect and maybe restore a life)
       this.scene.economy.lives = Math.min(this.scene.economy.maxLives, this.scene.economy.lives + 2);
       this.scene.events.emit('hudUpdate');
       this._showJutsuText(f.jutsuName, 210, 340, true);
       return;
     }
 
-    // Heal nearby (aoe radius or all)
     const radius = f.jutsuRange;
     let healed = 0;
-    for (const n of ninjas) {
-      if (Math.hypot(n.x - this.x, n.y - this.y) <= radius) {
-        healed++;
-      }
+    for (const n of this.scene.ninjas) {
+      if (Math.hypot(n.x - this.x, n.y - this.y) <= radius) healed++;
     }
-    // In this design ninjas don't have HP, so visual only + 1 life restore
-    if (healed > 0 || ninjas.length === 0) {
+    if (healed > 0 || this.scene.ninjas.length === 0) {
       this.scene.economy.lives = Math.min(this.scene.economy.maxLives, this.scene.economy.lives + 1);
       this.scene.events.emit('hudUpdate');
       this._showJutsuText(f.jutsuName, this.x, this.y - 20, false);
     }
+  }
+
+  _spawnJutsuParticles(color) {
+    const g = this.scene.add.graphics().setDepth(11);
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2;
+      g.fillStyle(color, 0.8);
+      g.fillCircle(
+        this.x + Math.cos(angle) * 15,
+        this.y + Math.sin(angle) * 15,
+        4,
+      );
+    }
+    this.scene.tweens.add({
+      targets: g, alpha: 0, scaleX: 2, scaleY: 2, duration: 500,
+      onComplete: () => g.destroy(),
+    });
   }
 
   _showJutsuText(label, x, y, large) {
@@ -192,21 +254,43 @@ export class Ninja {
       fill: '#FF6600', fontFamily: 'Arial',
       stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(20);
-    this.scene.tweens.add({ targets: t, y: y - 70, alpha: 0, duration: 1400, onComplete: () => t.destroy() });
+    this.scene.tweens.add({
+      targets: t, y: y - 70, alpha: 0, duration: 1400,
+      onComplete: () => t.destroy(),
+    });
   }
 
   evolve() {
     if (!this.getNextForm()) return false;
     this.formIndex++;
-    this.lastJutsuTime = 0; // reset so jutsu fires soon
+    this.lastJutsuTime = 0;
     this._draw();
     this._showJutsuText('進化！', this.x, this.y - 30, false);
+    this._spawnEvolveParticles();
+    if (this.scene.sound) this.scene.sound.evolve();
     return true;
   }
 
-  sellValue() { return Math.floor(this.data.cost * 0.5); }
+  _spawnEvolveParticles() {
+    for (let i = 0; i < 10; i++) {
+      const angle  = Math.random() * Math.PI * 2;
+      const radius = 15 + Math.random() * 20;
+      const g = this.scene.add.graphics().setDepth(12);
+      g.fillStyle(0xFFD700, 1);
+      g.fillCircle(this.x + Math.cos(angle) * 10, this.y + Math.sin(angle) * 10, 3);
+      this.scene.tweens.add({
+        targets: g,
+        x: g.x + Math.cos(angle) * radius,
+        y: g.y + Math.sin(angle) * radius,
+        alpha: 0,
+        duration: 500 + Math.random() * 300,
+        onComplete: () => g.destroy(),
+      });
+    }
+  }
 
-  levelUpCost() { return 50 * this.level; }
+  sellValue()    { return Math.floor(this.data.cost * 0.5); }
+  levelUpCost()  { return 50 * this.level; }
 
   destroy() {
     this.gfx.destroy();

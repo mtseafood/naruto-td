@@ -1,4 +1,4 @@
-const CACHE = 'naruto-td-v6';
+const CACHE = 'naruto-td-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -6,14 +6,14 @@ const ASSETS = [
   './src/data/ninjaData.js',
   './src/data/enemyData.js',
   './src/data/levels.js',
+  './src/data/maps.js',
   './src/entities/Ninja.js',
   './src/entities/Enemy.js',
   './src/entities/Projectile.js',
   './src/systems/GridSystem.js',
   './src/systems/WaveSystem.js',
   './src/systems/EconomySystem.js',
-  './src/scenes/BootScene.js',
-  './src/scenes/MenuScene.js',
+  './src/systems/SoundSystem.js',
   './src/scenes/GameScene.js',
 ];
 

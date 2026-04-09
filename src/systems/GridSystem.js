@@ -1,4 +1,4 @@
-import { GRID_COLS, GRID_ROWS, CELL_SIZE, GRID_OFFSET_X, GRID_OFFSET_Y } from '../data/levels.js';
+import { GRID_COLS, GRID_ROWS, CELL_SIZE, GRID_OFFSET_X, GRID_OFFSET_Y } from '../data/maps.js';
 
 export class GridSystem {
   constructor(pathCells) {

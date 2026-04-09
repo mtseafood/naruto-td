@@ -1,45 +1,9 @@
-// Canvas: 390x844, Grid: 7 cols x 10 rows, cell=55px, offset x=5 y=80
-// Path: S-shape
-//   Row 0 (right→left) → Col 0 (down to row 5) → Row 5 (left→right) → Col 6 (down to row 9) → Row 9 (right→left, exits)
+// Level definitions
+// layout: 0 = S-shape, 1 = U-shape, 2 = Maze (see maps.js)
 
-export const GRID_COLS = 7;
-export const GRID_ROWS = 10;
-export const CELL_SIZE = 55;
-export const GRID_OFFSET_X = 15;
-export const GRID_OFFSET_Y = 55;
-
-// Helper: pixel center of a grid cell
-function cx(col) { return GRID_OFFSET_X + col * CELL_SIZE + CELL_SIZE / 2; }
-function cy(row) { return GRID_OFFSET_Y + row * CELL_SIZE + CELL_SIZE / 2; }
-
-export const LEVEL_PATH = [
-  { x: GRID_OFFSET_X + GRID_COLS * CELL_SIZE + 30, y: cy(0) }, // enter from right of grid
-  { x: cx(0),  y: cy(0) },  // row 0 left end
-  { x: cx(0),  y: cy(5) },  // col 0 down to row 5
-  { x: cx(6),  y: cy(5) },  // row 5 right end
-  { x: cx(6),  y: cy(9) },  // col 6 down to row 9
-  { x: cx(0),  y: cy(9) },  // row 9 left end
-  { x: -40,    y: cy(9) },  // exit left (off-screen)
-];
-
-export const LEVEL_PATH_CELLS = [
-  // Row 0: full width
-  [0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],
-  // Col 0: rows 1-5
-  [0,1],[0,2],[0,3],[0,4],[0,5],
-  // Row 5: cols 1-6
-  [1,5],[2,5],[3,5],[4,5],[5,5],[6,5],
-  // Col 6: rows 6-9
-  [6,6],[6,7],[6,8],[6,9],
-  // Row 9: cols 0-5
-  [0,9],[1,9],[2,9],[3,9],[4,9],[5,9],
-];
-
-// Wave format:
-//  groups: [ { type, count, startDelay (ms), interval (ms between each spawn) } ]
 export const LEVELS = [
   {
-    id: 1, name: '木葉村入口',
+    id: 1, name: '木葉村入口', layout: 0,
     story: '大蛇丸的音忍部隊正在進攻木葉村！保衛村子的入口！',
     startGold: 300, maxLives: 20, completionBonus: 150,
     waves: [
@@ -52,7 +16,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 2, name: '木葉村城門',
+    id: 2, name: '木葉村城門', layout: 0,
     story: '更多精英音忍突破了外圍防線，逼近城門！',
     startGold: 350, maxLives: 20, completionBonus: 180,
     waves: [
@@ -68,7 +32,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 3, name: '中忍考試場',
+    id: 3, name: '中忍考試場', layout: 0,
     story: '薄荷（ザク）和金帶領一隊音忍突擊考試場！',
     startGold: 400, maxLives: 18, completionBonus: 200,
     waves: [
@@ -88,7 +52,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 4, name: '森林地帶',
+    id: 4, name: '森林地帶', layout: 1,
     story: '鬼流牙（ドス）帶著重裝音忍在森林中設伏！',
     startGold: 450, maxLives: 18, completionBonus: 220,
     waves: [
@@ -108,7 +72,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 5, name: '大蛇丸的巢穴外圍',
+    id: 5, name: '大蛇丸的巢穴外圍', layout: 1,
     story: '木葉忍者追蹤到大蛇丸的巢穴，輝現身阻止追擊！',
     startGold: 500, maxLives: 16, completionBonus: 300,
     unlocksMinato: true,
@@ -129,7 +93,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 6, name: '音之四人組・次郎坊',
+    id: 6, name: '音之四人組・次郎坊', layout: 1,
     story: '音之四人組的次郎坊以強力防禦攔截前進路線！',
     startGold: 500, maxLives: 15, completionBonus: 250,
     waves: [
@@ -147,7 +111,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 7, name: '音之四人組・鬼童丸與多由也',
+    id: 7, name: '音之四人組・鬼童丸與多由也', layout: 2,
     story: '鬼童丸和多由也聯手出現，絕招接連不斷！',
     startGold: 550, maxLives: 15, completionBonus: 280,
     waves: [
@@ -167,7 +131,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 8, name: '音之四人組・左近',
+    id: 8, name: '音之四人組・左近', layout: 2,
     story: '速度最快的左近帶領精銳部隊高速突破防線！',
     startGold: 600, maxLives: 15, completionBonus: 300,
     waves: [
@@ -187,7 +151,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 9, name: '大蛇丸巢穴深處',
+    id: 9, name: '大蛇丸巢穴深處', layout: 2,
     story: '四人組全員集結！加上輝的支援，這是最後的防線！',
     startGold: 650, maxLives: 12, completionBonus: 350,
     waves: [
@@ -211,7 +175,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 10, name: '最終決戰・大蛇丸',
+    id: 10, name: '最終決戰・大蛇丸', layout: 0,
     story: '木葉崩壞！大蛇丸親自出馬！以木葉之名，絕不退讓！',
     startGold: 700, maxLives: 10, completionBonus: 800,
     waves: [
