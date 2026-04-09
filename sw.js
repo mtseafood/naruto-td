@@ -1,9 +1,10 @@
-const CACHE = 'naruto-td-v7';
+const CACHE = 'naruto-td-v8';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './src/data/ninjaData.js',
+  './src/data/spriteData.js',
   './src/data/enemyData.js',
   './src/data/levels.js',
   './src/data/maps.js',

@@ -18,8 +18,9 @@ export class Ninja {
     this.lastJutsuTime  = 0;
     this.lastAuraTime   = 0;
 
-    this.gfx    = scene.add.graphics().setDepth(5);
-    this.lvlTxt = null;
+    this.sprite  = null;
+    this.gfx     = scene.add.graphics().setDepth(7);
+    this.lvlTxt  = null;
 
     this._draw();
   }
@@ -28,48 +29,40 @@ export class Ninja {
   getNextForm() { return this.data.forms[this.formIndex + 1] ?? null; }
 
   _draw() {
-    const f  = this.form;
-    const g  = this.gfx;
+    const f = this.form;
+    const g = this.gfx;
     g.clear();
 
-    // Shadow
-    g.fillStyle(0x000000, 0.3);
-    g.fillEllipse(this.x, this.y + 23, 36, 8);
+    // Destroy old sprite before redrawing (e.g. on evolve)
+    if (this.sprite) { this.sprite.destroy(); this.sprite = null; }
 
-    // Body
-    g.fillStyle(f.color, 1);
-    g.fillCircle(this.x, this.y, 20);
+    // ── Pixel art sprite ──────────────────────────────────
+    if (this.scene.textures.exists(this.type)) {
+      // Shadow ellipse
+      g.fillStyle(0x000000, 0.28);
+      g.fillEllipse(this.x, this.y + 22, 38, 9);
+
+      this.sprite = this.scene.add.image(this.x, this.y - 2, this.type)
+        .setDisplaySize(44, 44)
+        .setDepth(5);
+    } else {
+      // Fallback: plain circle
+      g.fillStyle(0x000000, 0.3);
+      g.fillEllipse(this.x, this.y + 23, 36, 8);
+      g.fillStyle(f.color, 1);
+      g.fillCircle(this.x, this.y, 20);
+    }
 
     // Form ring
     if (this.formIndex === 1) {
-      g.lineStyle(2, 0xFFFFFF, 0.75);
-      g.strokeCircle(this.x, this.y, 23);
+      g.lineStyle(2, 0xFFFFFF, 0.8);
+      g.strokeCircle(this.x, this.y - 2, 25);
     } else if (this.formIndex === 2) {
       g.lineStyle(3, 0xFFD700, 1);
-      g.strokeCircle(this.x, this.y, 24);
-      // Extra inner glow ring
+      g.strokeCircle(this.x, this.y - 2, 26);
       g.lineStyle(1, 0xFFFFAA, 0.5);
-      g.strokeCircle(this.x, this.y, 19);
+      g.strokeCircle(this.x, this.y - 2, 21);
     }
-
-    // Headband stripe
-    const hbColor = this.type === 'minato' ? 0xFFD700 : 0x446688;
-    g.lineStyle(3, hbColor, 0.85);
-    g.beginPath();
-    g.arc(this.x, this.y, 20, -0.55, 0.55);
-    g.strokePath();
-    // Leaf symbol (tiny dot on headband)
-    g.fillStyle(0xAADDFF, 0.9);
-    g.fillCircle(this.x, this.y - 18, 2);
-
-    // Eyes
-    g.fillStyle(0x111111, 0.9);
-    g.fillCircle(this.x - 6, this.y - 4, 3);
-    g.fillCircle(this.x + 6, this.y - 4, 3);
-    // Eye highlights
-    g.fillStyle(0xFFFFFF, 0.8);
-    g.fillCircle(this.x - 5, this.y - 5, 1.2);
-    g.fillCircle(this.x + 7, this.y - 5, 1.2);
 
     // Aura ring (passive)
     if (f.passiveAura) {
@@ -80,10 +73,10 @@ export class Ninja {
     // Level badge
     if (this.lvlTxt) this.lvlTxt.destroy();
     if (this.level > 1) {
-      this.lvlTxt = this.scene.add.text(this.x + 14, this.y - 16, `${this.level}`, {
+      this.lvlTxt = this.scene.add.text(this.x + 16, this.y - 18, `${this.level}`, {
         fontSize: '10px', fill: '#FFFFFF', fontFamily: 'Arial', fontStyle: 'bold',
         stroke: '#000', strokeThickness: 2,
-      }).setOrigin(0.5).setDepth(6);
+      }).setOrigin(0.5).setDepth(8);
     }
   }
 
@@ -294,6 +287,7 @@ export class Ninja {
 
   destroy() {
     this.gfx.destroy();
+    if (this.sprite) this.sprite.destroy();
     if (this.lvlTxt) this.lvlTxt.destroy();
   }
 }

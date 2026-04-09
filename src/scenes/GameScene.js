@@ -1,6 +1,7 @@
 import { LEVELS } from '../data/levels.js';
 import { MAP_LAYOUTS, CELL_SIZE, GRID_OFFSET_X, GRID_OFFSET_Y, GRID_COLS, GRID_ROWS } from '../data/maps.js';
 import { NINJA_DATA } from '../data/ninjaData.js';
+import { PALETTE, SPRITE_PIXELS } from '../data/spriteData.js';
 import { GridSystem } from '../systems/GridSystem.js';
 import { WaveSystem } from '../systems/WaveSystem.js';
 import { EconomySystem } from '../systems/EconomySystem.js';
@@ -88,6 +89,7 @@ export class GameScene extends Phaser.Scene {
     this.waves   = new WaveSystem(this, lv.waves, mapLayout.waypoints);
     this._mapLayout = mapLayout;
 
+    this._buildSpriteTextures();
     this._buildBackground();
     this._buildGrid();
     this._buildHUD();
@@ -123,6 +125,54 @@ export class GameScene extends Phaser.Scene {
       targets: [overlay, story, badge], alpha: 0, delay: 2800, duration: 700,
       onComplete: () => { overlay.destroy(); story.destroy(); badge.destroy(); },
     });
+  }
+
+  /* ── Sprite textures (pixel art) ── */
+  _buildSpriteTextures() {
+    const SIZE = 16;
+    for (const [id, rows] of Object.entries(SPRITE_PIXELS)) {
+      if (this.textures.exists(id)) continue;
+      const tex = this.textures.createCanvas(id, SIZE, SIZE);
+      const ctx = tex.getContext();
+
+      // Draw pixels
+      for (let r = 0; r < SIZE; r++) {
+        const row = rows[r] || '';
+        for (let c = 0; c < SIZE; c++) {
+          const col = PALETTE[row[c]];
+          if (!col) continue;
+          ctx.fillStyle = col;
+          ctx.fillRect(c, r, 1, 1);
+        }
+      }
+
+      // Auto-outline pass
+      const img = ctx.getImageData(0, 0, SIZE, SIZE);
+      const d   = img.data;
+      const out = new Uint8ClampedArray(d.length);
+      const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          const i = (r * SIZE + c) * 4;
+          if (d[i + 3] > 0) continue;
+          for (const [dr, dc] of dirs) {
+            const nr = r + dr, nc = c + dc;
+            if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE) continue;
+            if (d[(nr * SIZE + nc) * 4 + 3] > 10) {
+              out[i] = 15; out[i+1] = 15; out[i+2] = 15; out[i+3] = 255;
+              break;
+            }
+          }
+        }
+      }
+      for (let i = 0; i < d.length; i += 4) {
+        if (out[i+3] > 0 && d[i+3] === 0) {
+          d[i] = out[i]; d[i+1] = out[i+1]; d[i+2] = out[i+2]; d[i+3] = out[i+3];
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      tex.refresh();
+    }
   }
 
   /* ── Background ── */
