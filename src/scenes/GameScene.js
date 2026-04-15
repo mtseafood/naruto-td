@@ -1,6 +1,7 @@
 import { LEVELS } from '../data/levels.js';
 import { MAP_LAYOUTS, CELL_SIZE, GRID_OFFSET_X, GRID_OFFSET_Y, GRID_COLS, GRID_ROWS } from '../data/maps.js';
 import { NINJA_DATA } from '../data/ninjaData.js';
+import { ENEMY_DATA } from '../data/enemyData.js';
 import { PALETTE, SPRITE_PIXELS } from '../data/spriteData.js';
 import { GridSystem } from '../systems/GridSystem.js';
 import { WaveSystem } from '../systems/WaveSystem.js';
@@ -50,6 +51,9 @@ export class GameScene extends Phaser.Scene {
     this._waveCooldown = false;
     this._popup      = null;
     this.gameSpeed   = 1;
+    this._settings   = { showDamage: true };
+    this._lastSynergyCheck = 0;
+    this._wavePreviewLabels = [];
 
     // Session achievement tracking
     this._session = {
@@ -95,8 +99,27 @@ export class GameScene extends Phaser.Scene {
     this._buildHUD();
     this._buildPanel();
 
-    this.input.on('pointerdown', this._onTap, this);
+    this.input.on('pointerdown', this._onPointerDown, this);
+    this.input.on('pointerup',   this._onPointerUp,   this);
+    this.input.on('pointermove', this._onPointerMove, this);
     this.events.on('hudUpdate', this._refreshHUD, this);
+
+    // Synergy link graphics (drawn between Team 7 members)
+    this._synergyGfx = this.add.graphics().setDepth(4);
+
+    // Ghost placement preview
+    this._ghostGfx = this.add.graphics().setDepth(18);
+    this._ghostSprite = null;
+    this._longPressTimer = null;
+    this._pressTarget = null;
+
+    // Clean up wave preview labels + synergy gfx when scene shuts down
+    this.events.on('shutdown', () => {
+      if (this._wavePreviewLabels) {
+        this._wavePreviewLabels.forEach(t => t.destroy());
+        this._wavePreviewLabels = [];
+      }
+    });
 
     this._showLevelCutscene(lv);
     this._waveCountdown(3);
@@ -129,9 +152,9 @@ export class GameScene extends Phaser.Scene {
 
   /* ── Sprite textures (pixel art) ── */
   _buildSpriteTextures() {
-    const SIZE = 16;
     for (const [id, rows] of Object.entries(SPRITE_PIXELS)) {
       if (this.textures.exists(id)) continue;
+      const SIZE = rows.length;
       const tex = this.textures.createCanvas(id, SIZE, SIZE);
       const ctx = tex.getContext();
 
@@ -257,7 +280,7 @@ export class GameScene extends Phaser.Scene {
     this.hudWave  = this.add.text(370, 14, '', { ...ts, fontSize: '16px', fill: '#FFFFFF' }).setDepth(15);
     this.hudLevel = this.add.text(550, 14, LEVELS[this.levelIndex].name,
       { ...ts, fontSize: '15px', fill: '#AA8855' }).setDepth(15);
-    this.hudStatus = this.add.text(W - 115, 14, '',
+    this.hudStatus = this.add.text(W - 160, 14, '',
       { ...ts, fontSize: '15px', fill: '#88FF88' }).setDepth(15);
 
     // 2× speed toggle
@@ -266,6 +289,12 @@ export class GameScene extends Phaser.Scene {
     this.speedBtnTxt = this.add.text(W - 55, 25, '▶▶ 1×',
       { fontSize: '13px', fill: '#88FF88', fontFamily: 'Arial' }).setOrigin(0.5).setDepth(16);
     speedBg.on('pointerdown', () => this._toggleSpeed());
+
+    // Settings gear (sits between status text and speed button)
+    const gearBtn = this.add.text(W - 120, 25, '⚙', {
+      fontSize: '18px', fontFamily: 'Arial',
+    }).setOrigin(0.5).setDepth(16).setInteractive();
+    gearBtn.on('pointerdown', (p) => { p.event.stopPropagation(); this._toggleSettings(); });
 
     this._refreshHUD();
   }
@@ -281,6 +310,11 @@ export class GameScene extends Phaser.Scene {
       this._session.usedSpeed2x = true;
       this._checkAchievements();
     }
+  }
+
+  _toggleSettings() {
+    this._settings.showDamage = !this._settings.showDamage;
+    this._toast(this._settings.showDamage ? '傷害數字：開' : '傷害數字：關', 0xCCCCCC);
   }
 
   _refreshHUD() {
@@ -314,18 +348,16 @@ export class GameScene extends Phaser.Scene {
       const bg = this.add.rectangle(cx + CARD_W / 2, cy + CARD_H / 2, CARD_W, CARD_H, 0x1a1a1a)
         .setStrokeStyle(1, can ? 0x444444 : 0x222222).setDepth(14).setInteractive();
 
-      // Mini ninja drawing on card
+      // Character emoji badge on card
       const cg = this.add.graphics().setDepth(15);
-      cg.fillStyle(nd.color, 1);
-      cg.fillCircle(cx + 30, cy + CARD_H / 2, 17);
-      cg.lineStyle(2, 0x446688, 0.8);
-      cg.beginPath();
-      cg.arc(cx + 30, cy + CARD_H / 2, 17, -0.5, 0.5);
-      cg.strokePath();
-      // eyes
-      cg.fillStyle(0x111111, 0.9);
-      cg.fillCircle(cx + 25, cy + CARD_H / 2 - 3, 2.5);
-      cg.fillCircle(cx + 35, cy + CARD_H / 2 - 3, 2.5);
+      cg.fillStyle(nd.color, can ? 1 : 0.35);
+      cg.fillCircle(cx + 30, cy + CARD_H / 2, 18);
+      cg.lineStyle(2, 0x000000, 0.6);
+      cg.strokeCircle(cx + 30, cy + CARD_H / 2, 18);
+      this.add.text(cx + 30, cy + CARD_H / 2, nd.emoji || '🥷', {
+        fontSize: '22px',
+        fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", sans-serif',
+      }).setOrigin(0.5).setDepth(16).setAlpha(can ? 1 : 0.45);
 
       const nm = this.add.text(cx + 55, cy + 14, nd.name,
         { fontSize: '14px', fill: can ? '#FFFFFF' : '#555', fontFamily: 'Arial', fontStyle: 'bold' }).setDepth(15);
@@ -343,8 +375,9 @@ export class GameScene extends Phaser.Scene {
       this.cards.push({ id: nd.id, bg, nm, ct, cx, cy });
     });
 
-    // Wave control area
-    const ctrlY = startY + 2 * (CARD_H + CARD_GAP) + 18;
+    // Wave control area — dynamically below however many card rows we have
+    const numCardRows = Math.ceil(ninjaList.length / CARD_COLS);
+    const ctrlY = startY + numCardRows * (CARD_H + CARD_GAP) + 18;
     this.add.text(PANEL_X, ctrlY, '波次控制',
       { fontSize: '13px', fill: '#777', fontFamily: 'Arial' }).setDepth(15);
 
@@ -361,12 +394,59 @@ export class GameScene extends Phaser.Scene {
     // Map info label
     this.add.text(PANEL_X, ctrlY + 58, `地圖：${this._mapLayout.name}`,
       { fontSize: '11px', fill: '#555', fontFamily: 'Arial' }).setDepth(15);
+
+    // Wave enemy preview
+    this._wavePreviewTitleY = ctrlY + 74;
+    this.add.text(PANEL_X, this._wavePreviewTitleY, '下一波：',
+      { fontSize: '11px', fill: '#666', fontFamily: 'Arial' }).setDepth(15);
+    this._wavePreviewGfx = this.add.graphics().setDepth(15);
+    this._updateWavePreview();
+  }
+
+  _updateWavePreview() {
+    if (!this._wavePreviewGfx) return;
+    this._wavePreviewGfx.clear();
+    if (this._wavePreviewLabels) {
+      this._wavePreviewLabels.forEach(t => t.destroy());
+      this._wavePreviewLabels = [];
+    }
+
+    const nextIdx = this.waves.currentWave; // 0-based index of next wave
+    if (nextIdx >= LEVELS[this.levelIndex].waves.length) return;
+
+    const nextWaveData = LEVELS[this.levelIndex].waves[nextIdx];
+    if (!nextWaveData) return;
+
+    // Count enemy types
+    const counts = {};
+    for (const g of nextWaveData.groups) {
+      counts[g.type] = (counts[g.type] || 0) + g.count;
+    }
+
+    const dotY = this._wavePreviewTitleY + 18;
+    let px = PANEL_X + 42;
+    for (const [type, count] of Object.entries(counts)) {
+      const eData = ENEMY_DATA[type];
+      if (!eData) continue;
+      this._wavePreviewGfx.fillStyle(eData.color, 1);
+      this._wavePreviewGfx.fillCircle(px, dotY, eData.isBoss ? 6 : 4);
+      if (eData.isBoss) {
+        this._wavePreviewGfx.lineStyle(1, 0xFF0000, 0.8);
+        this._wavePreviewGfx.strokeCircle(px, dotY, 8);
+      }
+      const t = this.add.text(px + 8, dotY - 7, `×${count}`,
+        { fontSize: '9px', fill: eData.isBoss ? '#FF8888' : '#888', fontFamily: 'Arial' }).setDepth(15);
+      this._wavePreviewLabels.push(t);
+      px += 28;
+      if (px > PANEL_X + 520) break;
+    }
   }
 
   _selectType(id) {
-    this.selectedType = id;
+    this.selectedType = (this.selectedType === id) ? null : id;
     this._closePopup();
     this._refreshCards();
+    if (!this.selectedType) this._clearGhost();
   }
 
   _refreshCards() {
@@ -382,22 +462,106 @@ export class GameScene extends Phaser.Scene {
   }
 
   /* ── Input ── */
-  _onTap(ptr) {
-    // worldX/Y accounts for camera zoom (DPR), unlike ptr.x/y which is canvas pixels
+  _onPointerDown(ptr) {
     const wx = ptr.worldX, wy = ptr.worldY;
     if (wx > GRID_RIGHT + 5 || wy < GRID_OFFSET_Y) return;
     const cell = this.grid.pixelToGrid(wx, wy);
     if (!cell) return;
-    const { col, row } = cell;
-    const existing = this.grid.getNinja(col, row);
+    const existing = this.grid.getNinja(cell.col, cell.row);
 
+    this._pressTarget = {
+      ptrX: ptr.x, ptrY: ptr.y,
+      col: cell.col, row: cell.row,
+      existing, fired: false,
+    };
+
+    // Long-press (350ms) on existing ninja opens info panel
     if (existing) {
+      this._longPressTimer = this.time.delayedCall(350, () => {
+        if (!this._pressTarget) return;
+        this._pressTarget.fired = true;
+        this._hapticBump();
+        this._showPopup(existing);
+      });
+    }
+  }
+
+  _onPointerUp(ptr) {
+    if (this._longPressTimer) { this._longPressTimer.remove(); this._longPressTimer = null; }
+    const t = this._pressTarget; this._pressTarget = null;
+    if (!t || t.fired) return;
+
+    const existing = this.grid.getNinja(t.col, t.row);
+    if (existing) {
+      // Short tap on ninja = quick select for move (future) / open panel
       this._showPopup(existing);
-    } else if (this.selectedType && this.grid.isValidPlacement(col, row)) {
-      this._placeNinja(col, row, this.selectedType);
+    } else if (this.selectedType && this.grid.isValidPlacement(t.col, t.row)) {
+      this._placeNinja(t.col, t.row, this.selectedType);
     } else {
       this._closePopup();
     }
+  }
+
+  _onPointerMove(ptr) {
+    // Cancel long-press if dragged
+    if (this._pressTarget) {
+      const dx = ptr.x - this._pressTarget.ptrX, dy = ptr.y - this._pressTarget.ptrY;
+      if (dx*dx + dy*dy > 12*12 && this._longPressTimer) {
+        this._longPressTimer.remove(); this._longPressTimer = null;
+      }
+    }
+    this._updateGhost(ptr);
+  }
+
+  _updateGhost(ptr) {
+    const g = this._ghostGfx;
+    g.clear();
+    if (this._ghostSprite) { this._ghostSprite.destroy(); this._ghostSprite = null; }
+    if (!this.selectedType) return;
+
+    const wx = ptr.worldX, wy = ptr.worldY;
+    if (wx > GRID_RIGHT + 5 || wy < GRID_OFFSET_Y) return;
+    const cell = this.grid.pixelToGrid(wx, wy);
+    if (!cell) return;
+
+    const { col, row } = cell;
+    const x = GRID_OFFSET_X + col * CELL_SIZE;
+    const y = GRID_OFFSET_Y + row * CELL_SIZE;
+    const cx = x + CELL_SIZE / 2, cy = y + CELL_SIZE / 2;
+
+    const valid = this.grid.isValidPlacement(col, row);
+    const nd = NINJA_DATA[this.selectedType];
+    const canAfford = this.economy.canAfford(nd.cost);
+    const ok = valid && canAfford;
+
+    const color = ok ? 0x33DD66 : 0xDD3333;
+
+    // Cell highlight
+    g.fillStyle(color, 0.25);
+    g.fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+    g.lineStyle(2, color, 0.9);
+    g.strokeRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+
+    // Range circle
+    if (ok) {
+      const range = nd.forms[0].attackRange * (this.shopBonuses?.rangeMult || 1);
+      g.lineStyle(1, color, 0.6);
+      g.strokeCircle(cx, cy, range);
+      g.fillStyle(color, 0.06);
+      g.fillCircle(cx, cy, range);
+    }
+
+    // Ghost sprite
+    if (this.textures.exists(this.selectedType)) {
+      this._ghostSprite = this.add.image(cx, cy - 2, this.selectedType)
+        .setDisplaySize(44, 44).setDepth(19).setAlpha(ok ? 0.6 : 0.35);
+      if (!ok) this._ghostSprite.setTint(0xFF6666);
+    }
+  }
+
+  _clearGhost() {
+    if (this._ghostGfx) this._ghostGfx.clear();
+    if (this._ghostSprite) { this._ghostSprite.destroy(); this._ghostSprite = null; }
   }
 
   /* ── Ninja placement ── */
@@ -411,7 +575,35 @@ export class GameScene extends Phaser.Scene {
     this._redrawGrid();
     this._refreshHUD();
     this._refreshCards();
+    this._floatText(GRID_OFFSET_X + col * CELL_SIZE + CELL_SIZE/2,
+                    GRID_OFFSET_Y + row * CELL_SIZE + 4,
+                    `-${nd.cost}`, '#FFD700', -28);
+    this.tweens.add({
+      targets: ninja.sprite, scaleX: { from: 0.6, to: ninja.sprite.scaleX },
+      scaleY: { from: 0.6, to: ninja.sprite.scaleY }, duration: 180, ease: 'Back.Out',
+    });
+    this._hapticBump();
     if (this.sound) this.sound.place();
+    this._clearGhost();
+  }
+
+  /* ── Floating text helper ── */
+  _floatText(x, y, txt, color, dy = -40) {
+    const t = this.add.text(x, y, txt, {
+      fontSize: '15px', fill: color, fontFamily: 'Arial',
+      fontStyle: 'bold', stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(25);
+    this.tweens.add({
+      targets: t, y: y + dy, alpha: 0, duration: 700,
+      onComplete: () => t.destroy(),
+    });
+  }
+
+  /* ── Haptic feedback ── */
+  _hapticBump(pattern = 15) {
+    if (typeof navigator === 'undefined' || !navigator.vibrate) return;
+    if (this._settings?.vibrate === false) return;
+    try { navigator.vibrate(pattern); } catch {}
   }
 
   /* ── Popup (ninja info) ── */
@@ -449,6 +641,7 @@ export class GameScene extends Phaser.Scene {
     if (f.passiveAura)     passives.push('護法氣場');
     if (f.passiveTeleport) passives.push('飛雷神');
     if (f.passiveShield)   passives.push('須佐護盾');
+    if (ninja._synergyBonus > 0) passives.push(`小隊羈絆 +${Math.round(ninja._synergyBonus * 100)}%`);
     if (passives.length) {
       items.push(add(px + 12, py + 88, `⚡ ${passives.join('  ')}`,
         { fontSize: '11px', fill: '#AAFFAA' }));
@@ -501,6 +694,7 @@ export class GameScene extends Phaser.Scene {
         this._refreshHUD();
         this._refreshCards();
         this._closePopup();
+        if (this._synergyGfx) this._synergyGfx.clear(); // immediately remove link lines
         if (this.sound) this.sound.sell();
       }));
 
@@ -563,8 +757,21 @@ export class GameScene extends Phaser.Scene {
 
     this.waves.update(time);
 
+    // Synergy update every 1 s
+    if (time - this._lastSynergyCheck > 1000) {
+      this._lastSynergyCheck = time;
+      this._updateSynergies();
+    }
+
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
+
+      // Boss arrival cutscene (once per boss instance)
+      if (e.data.isBoss && !e.announced) {
+        e.announced = true;
+        this._showBossCutscene(e);
+      }
+
       e.update(time, delta);
       if (e.isDead) {
         this.economy.addGold(e.reward);
@@ -605,6 +812,53 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /* ── Boss arrival cutscene ── */
+  _showBossCutscene(enemy) {
+    const cx = GRID_RIGHT / 2;
+    const overlay = this.add.rectangle(cx, H / 2, GRID_RIGHT + 20, 72, 0x440000, 0.88)
+      .setDepth(26).setAlpha(0);
+    const txt = this.add.text(cx, H / 2, `⚠ ${enemy.data.name} 出現！`,
+      { fontSize: '22px', fill: '#FF4444', fontFamily: 'Arial',
+        fontStyle: 'bold', stroke: '#000', strokeThickness: 4 })
+      .setOrigin(0.5).setDepth(27).setAlpha(0);
+
+    this.tweens.add({ targets: [overlay, txt], alpha: 1, duration: 220 });
+    this.tweens.add({
+      targets: [overlay, txt], alpha: 0, delay: 1800, duration: 400,
+      onComplete: () => { overlay.destroy(); txt.destroy(); },
+    });
+    if (this.sound) this.sound.boss();
+  }
+
+  /* ── Team 7 synergy ── */
+  _updateSynergies() {
+    const team7 = ['naruto', 'sasuke', 'sakura'];
+    for (const n of this.ninjas) n._synergyBonus = 0;
+
+    const members = this.ninjas.filter(n => team7.includes(n.type));
+    const RANGE = CELL_SIZE * 2.5; // ~2.5 cells
+
+    this._synergyGfx.clear();
+    for (let i = 0; i < members.length; i++) {
+      const ni = members[i];
+      let links = 0;
+      for (let j = 0; j < members.length; j++) {
+        if (i === j) continue;
+        const nj = members[j];
+        const dist = Math.hypot(nj.x - ni.x, nj.y - ni.y);
+        if (dist <= RANGE) {
+          links++;
+          // Draw link line (only draw once per pair)
+          if (i < j) {
+            this._synergyGfx.lineStyle(1, 0xFFFF66, 0.35);
+            this._synergyGfx.lineBetween(ni.x, ni.y, nj.x, nj.y);
+          }
+        }
+      }
+      ni._synergyBonus = links * 0.10; // +10% dmg per nearby teammate
+    }
+  }
+
   _onWaveClear() {
     const bonus = 30 + this.waves.currentWave * 10;
     this.economy.addGold(bonus);
@@ -615,6 +869,7 @@ export class GameScene extends Phaser.Scene {
     this.hudStatus.setText('準備下一波...');
     this.nextWaveBtn.setVisible(true);
     this.nextWaveBtnTxt.setVisible(true);
+    this._updateWavePreview();
     this.time.delayedCall(8000, () => {
       if (!this.gameOver && !this.levelDone && !this.waves.active && this.waves.hasMoreWaves())
         this._launchWave();
@@ -638,6 +893,17 @@ export class GameScene extends Phaser.Scene {
     const next = this.levelIndex + 2;
     if (next > (save.maxLevel ?? 1)) save.maxLevel = next;
     if (lv.unlocksMinato) save.minatoUnlocked = true;
+
+    // Star rating (1–3 based on lives remaining)
+    const livePct = this.economy.lives / this.economy.maxLives;
+    const stars = livePct >= 0.8 ? 3 : livePct >= 0.5 ? 2 : 1;
+    save.stars = save.stars || {};
+    if (stars > (save.stars[this.levelIndex] || 0)) save.stars[this.levelIndex] = stars;
+
+    // Best lives per level
+    save.bestLives = save.bestLives || {};
+    if (this.economy.lives > (save.bestLives[this.levelIndex] || 0))
+      save.bestLives[this.levelIndex] = this.economy.lives;
 
     // Merge session achievement stats into save
     save.stats = save.stats || {};
@@ -777,10 +1043,30 @@ export class GameScene extends Phaser.Scene {
       stroke: '#000', strokeThickness: 5,
     }).setOrigin(0.5).setDepth(31);
 
-    const stats = `擊殺 ${this._session.totalKills}　波數 ${this.waves.currentWave}　`;
-    this.add.text(cx, baseY + 58,
+    const stats = `擊殺 ${this._session.totalKills}　波數 ${this.waves.currentWave}`;
+    this.add.text(cx, baseY + 54,
       win ? `+${lv.completionBonus} 金幣　${stats}` : '木葉村陷落了...',
-      { fontSize: '16px', fill: '#CCC', fontFamily: 'Arial' }).setOrigin(0.5).setDepth(31);
+      { fontSize: '15px', fill: '#CCC', fontFamily: 'Arial' }).setOrigin(0.5).setDepth(31);
+
+    if (win) {
+      // Stars
+      const livePct = this.economy.lives / this.economy.maxLives;
+      const stars = livePct >= 0.8 ? 3 : livePct >= 0.5 ? 2 : 1;
+      const starStr = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+      this.add.text(cx, baseY + 25, starStr,
+        { fontSize: '30px', fill: '#FFD700', fontFamily: 'Arial',
+          stroke: '#AA6600', strokeThickness: 2 })
+        .setOrigin(0.5).setDepth(31);
+
+      // Best lives record
+      const save = getSave();
+      const prev = (save.bestLives || {})[this.levelIndex] || 0;
+      const isNew = this.economy.lives >= prev;
+      this.add.text(cx, baseY + 74,
+        `剩餘生命 ${this.economy.lives}${isNew ? ' 🏅最高紀錄' : ''}`,
+        { fontSize: '12px', fill: isNew ? '#FFD700' : '#888', fontFamily: 'Arial' })
+        .setOrigin(0.5).setDepth(31);
+    }
 
     const hasNext = this.levelIndex + 1 < LEVELS.length;
     let btnY = baseY + 115;

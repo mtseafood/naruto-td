@@ -21,6 +21,10 @@ export class Enemy {
 
     this.isDead = false;
     this.reachedEnd = false;
+    this.announced = false; // for boss arrival cutscene
+
+    // Sprite (set lazily in _draw if texture exists)
+    this.sprite = null;
 
     // Status effects
     this.slowTimer = 0;
@@ -62,42 +66,55 @@ export class Enemy {
     const g = this.gfx;
     g.clear();
 
-    const isBoss  = this.data.isBoss;
-    const r       = isBoss ? 18 : 13;
-    const bodyC   = this.data.color;
-    const bob     = Math.sin(this._bobT) * 2; // vertical bob offset
+    const isBoss = this.data.isBoss;
+    const r      = isBoss ? 18 : 13;
+    const bob    = Math.sin(this._bobT) * 2;
 
     // Shadow
     g.fillStyle(0x000000, 0.25);
     g.fillEllipse(this.x, this.y + r + 2 - bob, r * 2 - 4, 5);
 
-    // Boss outer ring
+    // Sprite-based rendering for bosses with pixel art
+    if (this.scene.textures.exists(this.type)) {
+      if (!this.sprite) {
+        this.sprite = this.scene.add.image(this.x, this.y - bob, this.type)
+          .setDisplaySize(isBoss ? 52 : 36, isBoss ? 52 : 36)
+          .setDepth(6);
+      } else {
+        this.sprite.setPosition(this.x, this.y - bob);
+      }
+
+      // Boss ring overlay on graphics layer
+      if (isBoss) {
+        g.lineStyle(2, 0xFF0000, 0.6);
+        g.strokeCircle(this.x, this.y - bob, r + 6);
+      }
+      if (this.slowFactor < 1) {
+        g.lineStyle(2, 0x66CCFF, 0.7);
+        g.strokeCircle(this.x, this.y - bob, r + 8);
+      }
+      return;
+    }
+
+    // Fallback: circle rendering for minion enemies
+    const bodyC = this.data.color;
     if (isBoss) {
       g.lineStyle(2, 0xFF0000, 0.75);
       g.strokeCircle(this.x, this.y - bob, r + 4);
     }
-
-    // Body
     g.fillStyle(bodyC, 1);
     g.fillCircle(this.x, this.y - bob, r);
-
-    // Armor ring
     if (this.armor > 0.2) {
       g.lineStyle(2, 0xCCCCCC, 0.7);
       g.strokeCircle(this.x, this.y - bob, r - 2);
     }
-
-    // Eyes (two small white dots + pupils)
-    const ex = r * 0.3;
-    const ey = r * 0.15;
+    const ex = r * 0.3, ey = r * 0.15;
     g.fillStyle(0xFFFFFF, 0.9);
     g.fillCircle(this.x - ex, this.y - ey - bob, isBoss ? 4 : 3);
     g.fillCircle(this.x + ex, this.y - ey - bob, isBoss ? 4 : 3);
     g.fillStyle(0x000000, 1);
     g.fillCircle(this.x - ex + 1, this.y - ey - bob + 0.5, isBoss ? 2 : 1.5);
     g.fillCircle(this.x + ex + 1, this.y - ey - bob + 0.5, isBoss ? 2 : 1.5);
-
-    // Slow: blue tint outline
     if (this.slowFactor < 1) {
       g.lineStyle(2, 0x66CCFF, 0.7);
       g.strokeCircle(this.x, this.y - bob, r + 2);
@@ -184,17 +201,37 @@ export class Enemy {
     this.nameTxt.setPosition(this.x, this.y - (this.data.isBoss ? 32 : 23) - Math.sin(this._bobT) * 2);
   }
 
-  takeDamage(rawDamage) {
+  takeDamage(rawDamage, opts = {}) {
     if (this.isDead) return;
     const effectiveArmor = Math.max(0, this.armor - this.armorDebuff);
     const actual = Math.max(1, Math.floor(rawDamage * (1 - effectiveArmor)));
     this.hp -= actual;
+    this._flashHit();
+    if (this.scene._settings?.showDamage !== false) {
+      const color = opts.crit ? 0xFFCC00 : (opts.jutsu ? 0xFF7733 : 0xFFFFFF);
+      this._showFloatText(opts.crit ? `${actual}!` : `${actual}`, color);
+    }
     if (this.hp <= 0) this._die();
     else this._drawHpBar();
   }
 
+  _flashHit() {
+    if (this._flashTween) this._flashTween.stop();
+    this.gfx.setAlpha(1);
+    // Overlay flash using a temporary white rect
+    if (!this._flashRect) {
+      this._flashRect = this.scene.add.rectangle(this.x, this.y, 26, 26, 0xFFFFFF, 0.85)
+        .setDepth(7);
+    }
+    this._flashRect.setPosition(this.x, this.y).setAlpha(0.85).setVisible(true);
+    this._flashTween = this.scene.tweens.add({
+      targets: this._flashRect, alpha: 0, duration: 110,
+      onComplete: () => this._flashRect && this._flashRect.setVisible(false),
+    });
+  }
+
   applySlow(factor, duration) {
-    this.slowFactor = Math.min(this.slowFactor, factor);
+    this.slowFactor = Math.min(this.slowFactor, Math.max(factor, 0.02)); // floor at 2% (near-stop)
     this.slowTimer  = Math.max(this.slowTimer, duration);
     this.speed      = this.baseSpeed * this.slowFactor;
   }
@@ -269,5 +306,7 @@ export class Enemy {
     this.gfx.destroy();
     this.hpGfx.destroy();
     this.nameTxt.destroy();
+    if (this._flashRect) this._flashRect.destroy();
+    if (this.sprite) { this.sprite.destroy(); this.sprite = null; }
   }
 }

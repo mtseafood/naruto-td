@@ -18,9 +18,12 @@ export class Ninja {
     this.lastJutsuTime  = 0;
     this.lastAuraTime   = 0;
 
-    this.sprite  = null;
-    this.gfx     = scene.add.graphics().setDepth(7);
-    this.lvlTxt  = null;
+    this._synergyBonus = 0; // set by GameScene._updateSynergies()
+
+    this.sprite   = null;
+    this.gfx      = scene.add.graphics().setDepth(7);
+    this.jutsuGfx = scene.add.graphics().setDepth(9);
+    this.lvlTxt   = null;
 
     this._draw();
   }
@@ -100,6 +103,9 @@ export class Ninja {
       if (fired) this.lastJutsuTime = time;
     }
 
+    // Jutsu cooldown arc
+    this._drawJutsuCooldown(time);
+
     // Aura passive — debuff nearby enemies' armor
     if (f.passiveAura && time - this.lastAuraTime >= 1000) {
       this.lastAuraTime = time;
@@ -122,8 +128,34 @@ export class Ninja {
     return best;
   }
 
+  _drawJutsuCooldown(time) {
+    const g  = this.jutsuGfx;
+    g.clear();
+    const f   = this.form;
+    const cd  = f.jutsuCooldown;
+    const eff = this.lastJutsuTime === 0 ? cd / 2 : cd;
+    const pct = Math.min(1, (time - this.lastJutsuTime) / eff);
+    const r   = 28;
+    const cx  = this.x, cy = this.y - 2;
+
+    if (pct >= 1) {
+      // Pulsing glow: jutsu ready
+      const alpha = 0.35 + 0.25 * Math.sin(time * 0.005);
+      g.lineStyle(2, 0xFFFF00, alpha);
+      g.strokeCircle(cx, cy, r);
+    } else {
+      // Sweep arc showing charge
+      g.lineStyle(2, 0xFF8800, 0.55);
+      const startAngle = -Math.PI / 2;
+      const endAngle   = startAngle + pct * Math.PI * 2;
+      g.beginPath();
+      g.arc(cx, cy, r, startAngle, endAngle, false);
+      g.strokePath();
+    }
+  }
+
   // Shop/level bonuses
-  _atkMult()    { return (1 + (this.level - 1) * 0.05) * (this.scene.shopBonuses?.attackMult ?? 1); }
+  _atkMult()    { return (1 + (this.level - 1) * 0.05) * (this.scene.shopBonuses?.attackMult ?? 1) * (1 + this._synergyBonus); }
   _atkRange()   { return this.form.attackRange  * (this.scene.shopBonuses?.rangeMult ?? 1); }
   _jutsuRange() { return this.form.jutsuRange   * (this.scene.shopBonuses?.rangeMult ?? 1); }
   _atkCooldown(){ return this.form.attackCooldown / (this.scene.shopBonuses?.speedMult ?? 1); }
@@ -287,6 +319,7 @@ export class Ninja {
 
   destroy() {
     this.gfx.destroy();
+    this.jutsuGfx.destroy();
     if (this.sprite) this.sprite.destroy();
     if (this.lvlTxt) this.lvlTxt.destroy();
   }

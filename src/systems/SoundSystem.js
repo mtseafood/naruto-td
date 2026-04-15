@@ -90,4 +90,12 @@ export class SoundSystem {
   place()   { this._osc(660, 'sine', 0.3, 0.001, 0.1, 880); }
   sell()    { this._osc(440, 'sine', 0.3, 0.001, 0.12, 220); }
   speed()   { this._osc(800, 'square', 0.2, 0.001, 0.08, 1200); }
+
+  boss() {
+    // Ominous low growl + rising tone
+    this._osc(80, 'sawtooth', 0.6, 0.001, 0.5, 55);
+    setTimeout(() => this._osc(110, 'sawtooth', 0.5, 0.001, 0.4, 90), 100);
+    setTimeout(() => this._noise(0.3, 0.4, 200), 200);
+    setTimeout(() => this._osc(220, 'square', 0.35, 0.001, 0.25, 165), 350);
+  }
 }

@@ -7,7 +7,7 @@
 export const NINJA_DATA = {
   naruto: {
     id: 'naruto', name: '鳴人', cost: 150, alwaysUnlocked: true,
-    color: 0xFF8C00,
+    color: 0xFF8C00, emoji: '🍥',
     forms: [
       {
         formIndex: 0, name: '普通鳴人', color: 0xFF8C00,
@@ -34,7 +34,7 @@ export const NINJA_DATA = {
 
   sasuke: {
     id: 'sasuke', name: '佐助', cost: 175, alwaysUnlocked: true,
-    color: 0x6600AA,
+    color: 0x6600AA, emoji: '👁️',
     forms: [
       {
         formIndex: 0, name: '普通佐助', color: 0x6600AA,
@@ -63,7 +63,7 @@ export const NINJA_DATA = {
 
   sakura: {
     id: 'sakura', name: '小櫻', cost: 130, alwaysUnlocked: true,
-    color: 0xFF69B4,
+    color: 0xFF69B4, emoji: '🌸',
     forms: [
       {
         formIndex: 0, name: '普通小櫻', color: 0xFF69B4,
@@ -93,7 +93,7 @@ export const NINJA_DATA = {
 
   kakashi: {
     id: 'kakashi', name: '卡卡西', cost: 200, alwaysUnlocked: true,
-    color: 0x999999,
+    color: 0x999999, emoji: '📖',
     forms: [
       {
         formIndex: 0, name: '普通卡卡西', color: 0x999999,
@@ -121,7 +121,7 @@ export const NINJA_DATA = {
 
   rocklee: {
     id: 'rocklee', name: '李洛克', cost: 140, alwaysUnlocked: true,
-    color: 0x00CC44,
+    color: 0x00CC44, emoji: '🥋',
     forms: [
       {
         formIndex: 0, name: '普通李洛克', color: 0x00CC44,
@@ -150,7 +150,7 @@ export const NINJA_DATA = {
 
   hinata: {
     id: 'hinata', name: '雛田', cost: 135, alwaysUnlocked: true,
-    color: 0x8855CC,
+    color: 0x8855CC, emoji: '🌙',
     forms: [
       {
         formIndex: 0, name: '普通雛田', color: 0x8855CC,
@@ -180,7 +180,7 @@ export const NINJA_DATA = {
 
   gaara: {
     id: 'gaara', name: '我愛羅', cost: 180, alwaysUnlocked: true,
-    color: 0xC19A6B,
+    color: 0xC19A6B, emoji: '🏜️',
     forms: [
       {
         formIndex: 0, name: '普通我愛羅', color: 0xC19A6B,
@@ -208,10 +208,40 @@ export const NINJA_DATA = {
     ],
   },
 
+  shikamaru: {
+    id: 'shikamaru', name: '鹿丸', cost: 145, alwaysUnlocked: true,
+    color: 0x558822, emoji: '🦌',
+    forms: [
+      {
+        formIndex: 0, name: '普通鹿丸', color: 0x558822,
+        attackRange: 125, attackCooldown: 1500, damage: 12,
+        jutsuName: '影縫之術', jutsuCooldown: 10000, jutsuDamage: 20,
+        jutsuRange: 140, jutsuAoe: 50, jutsuIsFullMap: false, jutsuTargetCount: 1,
+        jutsuSlow: { factor: 0.0, duration: 2500 }, // full stop
+      },
+      {
+        formIndex: 1, name: '中忍鹿丸', color: 0x7AB530,
+        unlockLevel: 5, unlockCost: 450,
+        attackRange: 145, attackCooldown: 1300, damage: 24,
+        jutsuName: '影縫・束縛陣', jutsuCooldown: 12000, jutsuDamage: 40,
+        jutsuRange: 160, jutsuAoe: 80, jutsuIsFullMap: false, jutsuTargetCount: 1,
+        jutsuSlow: { factor: 0.0, duration: 3500 }, // full stop in AoE
+      },
+      {
+        formIndex: 2, name: '上忍鹿丸', color: 0xAADD44,
+        unlockLevel: 10, unlockCost: 1100,
+        attackRange: 170, attackCooldown: 1100, damage: 40,
+        jutsuName: '影真似之術', jutsuCooldown: 16000, jutsuDamage: 80,
+        jutsuRange: 9999, jutsuAoe: 0, jutsuIsFullMap: true, jutsuTargetCount: -1,
+        jutsuSlow: { factor: 0.0, duration: 4000 }, // freeze all enemies
+      },
+    ],
+  },
+
   minato: {
     id: 'minato', name: '水門', cost: 250, alwaysUnlocked: false,
     unlockAfterLevel: 5,
-    color: 0xFFD700,
+    color: 0xFFD700, emoji: '⚡',
     forms: [
       {
         formIndex: 0, name: '第四代火影', color: 0xFFD700,

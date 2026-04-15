@@ -74,4 +74,35 @@ export const MAP_LAYOUTS = [
       [0,9],[1,9],
     ],
   },
+
+  // ── 3: Spiral (level 10) ─ spiral inward then exit right
+  {
+    name: '螺旋路線',
+    waypoints: [
+      { x: -40,              y: cy(0) },
+      { x: cx(6),            y: cy(0) },
+      { x: cx(6),            y: cy(9) },
+      { x: cx(0),            y: cy(9) },
+      { x: cx(0),            y: cy(3) },
+      { x: cx(5),            y: cy(3) },
+      { x: cx(5),            y: cy(6) },
+      { x: GRID_RIGHT + 35,  y: cy(6) },
+    ],
+    pathCells: [
+      // Row 0 (enter left → right)
+      [0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],
+      // Col 6 (down)
+      [6,1],[6,2],[6,3],[6,4],[6,5],[6,6],[6,7],[6,8],[6,9],
+      // Row 9 (left)
+      [0,9],[1,9],[2,9],[3,9],[4,9],[5,9],
+      // Col 0 (up to row 3)
+      [0,3],[0,4],[0,5],[0,6],[0,7],[0,8],
+      // Row 3 (right to col 5)
+      [1,3],[2,3],[3,3],[4,3],[5,3],
+      // Col 5 (down to row 6)
+      [5,4],[5,5],[5,6],
+      // Row 6 (right → exit)
+      [2,6],[3,6],[4,6],
+    ],
+  },
 ];

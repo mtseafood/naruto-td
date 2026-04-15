@@ -175,7 +175,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 10, name: '最終決戰・大蛇丸', layout: 0,
+    id: 10, name: '最終決戰・大蛇丸', layout: 3,
     story: '木葉崩壞！大蛇丸親自出馬！以木葉之名，絕不退讓！',
     startGold: 700, maxLives: 10, completionBonus: 800,
     waves: [
